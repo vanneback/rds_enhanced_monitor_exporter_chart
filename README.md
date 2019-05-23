@@ -43,3 +43,5 @@ Parameter | Description | Default
 `tolerations` | node tolerations | `[]`
 `affinity` | pod affinity rules | `{}`
 
+## Docker file
+A docker file can be built from https://github.com/vanneback/rds_enhanced_monitor_exporter_dockerfile
