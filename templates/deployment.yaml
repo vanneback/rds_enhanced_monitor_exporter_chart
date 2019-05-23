@@ -1,0 +1,64 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name  }}
+  labels:
+    app.kubernetes.io/name: {{ include "rds-exporter.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "rds-exporter.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "rds-exporter.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- if or .Values.podAnnotations (.Values.kube2iam.enabled) }}
+      annotations:
+      {{- if .Values.kube2iam.enabled }}
+        iam.amazonaws.com/role: {{ .Values.kube2iam.role }}
+      {{- end }}
+      {{- if or .Values.podAnnotations }}
+{{ toYaml .Values.podAnnotations | indent 8 }}
+      {{- end }}
+    {{- end }}
+    spec:
+      containers:
+      - name: {{ .Release.Name  }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: metrics
+          containerPort: 9408
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /etc/rds-exporter
+          name: config
+        {{- if .Values.env.enabled }}
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.env.secretName }}
+              key: access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.env.secretName }}
+              key: secret-key
+        {{- end }}
+      resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      volumes:
+        - configMap:
+            defaultMode: 420
+            name: rds-exporter
+          name: config
